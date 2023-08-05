@@ -33,7 +33,7 @@ The module provides a user-friendly interface for generating random numbers, shu
    import mt
 
 3. Use the module's methods for various randomization tasks:
-   '''bash
+   ```bash
    random_value = mt.random()
    random_int = mt.randint(1, 100)
    shuffled_list = mt.shuffle([1, 2, 3, 4, 5])
