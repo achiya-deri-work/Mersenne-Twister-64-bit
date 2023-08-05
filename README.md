@@ -27,3 +27,7 @@ The module provides a user-friendly interface for generating random numbers, shu
    ```bash
    git clone https://github.com/your-username/your-repo-name.git
    cd your-repo-name
+
+1. import the mt module to use various methods 
+
+
