@@ -39,14 +39,14 @@ The module provides a user-friendly interface for generating random numbers, shu
    shuffled_list = mt.shuffle([1, 2, 3, 4, 5])
    sampled_elements = mt.sample([1, 2, 3, 4, 5], k=2)
 
-Examples
+## Examples
 For more usage examples, check out the examples directory in this repository.
 
-License
+## License
 This project is licensed under the MIT License. See the LICENSE file for details.
 
-Credits
+## Credits
 This module is developed by Your Name.
 
-Feedback and Contributions
+## Feedback and Contributions
 Feedback, suggestions, and contributions are welcome! Feel free to open issues or pull requests.
