@@ -24,8 +24,8 @@ The module provides a user-friendly interface for generating random numbers, shu
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/your-repo-name.git
-   cd your-repo-name
+   gh repo clone achiya-deri-work/Mersenne-Twister-64-bit
+   cd Mersenne-Twister-64-bit
 
 2. import the mt module to use various methods:
    ```bash
