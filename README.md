@@ -28,6 +28,25 @@ The module provides a user-friendly interface for generating random numbers, shu
    git clone https://github.com/your-username/your-repo-name.git
    cd your-repo-name
 
-1. import the mt module to use various methods 
+2. import the mt module to use various methods:
+   ```bash
+   import mt
 
+3. Use the module's methods for various randomization tasks:
+   '''bash
+   random_value = mt.random()
+   random_int = mt.randint(1, 100)
+   shuffled_list = mt.shuffle([1, 2, 3, 4, 5])
+   sampled_elements = mt.sample([1, 2, 3, 4, 5], k=2)
 
+Examples
+For more usage examples, check out the examples directory in this repository.
+
+License
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+Credits
+This module is developed by Your Name.
+
+Feedback and Contributions
+Feedback, suggestions, and contributions are welcome! Feel free to open issues or pull requests.
