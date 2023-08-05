@@ -23,7 +23,6 @@ The module provides a user-friendly interface for generating random numbers, shu
 ## Usage
 
 1. Clone the repository:
-
    ```bash
    git clone https://github.com/your-username/your-repo-name.git
    cd your-repo-name
@@ -39,14 +38,11 @@ The module provides a user-friendly interface for generating random numbers, shu
    shuffled_list = mt.shuffle([1, 2, 3, 4, 5])
    sampled_elements = mt.sample([1, 2, 3, 4, 5], k=2)
 
-## Examples
-For more usage examples, check out the examples directory in this repository.
-
 ## License
 This project is licensed under the MIT License. See the LICENSE file for details.
 
 ## Credits
-This module is developed by Your Name.
+This module is developed by Achiya Deri.
 
 ## Feedback and Contributions
 Feedback, suggestions, and contributions are welcome! Feel free to open issues or pull requests.
