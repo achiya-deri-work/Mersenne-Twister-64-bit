@@ -15,16 +15,17 @@ Functions:
     random: Generates a random float number in the range [0.0, 1.0).
     uniform(a, b): Generates a random float number in the range [a, b).
     randint(start, end): Generates a random integer number in the range [start, end].
-    choice(seq): Returns a random element from the given sequence.
+    choice(seq): Returns a random element from the given list.
     randrange(start, end=None, step=1): Generates a random integer from range(start, end, step).
-    sample(seq, k, unique=True): Returns a list with k unique (or not if unique=False) random elements from the given sequence.
-    shuffle(seq, state=None): Returns a shuffled version of the given sequence.
+    sample(seq, k, unique=True): Returns a list with k unique (or not if unique=False) random elements from the given list.
+    shuffle(seq, state=None): Returns a shuffled version of the given list.
     setstate(state): Sets the internal state of the random number generator.
 
 Note: The module exports the above functions directly, so they can be accessed as part of the module itself.
 """
 
 import time
+from typing import Any
 
 
 class SeedingError(Exception):
@@ -98,10 +99,10 @@ class MT(object):
     - _randint(): Generate a random 64-bit integer.
     - randrange(start, end=None, step=1): Generate a random integer within a specified range with step.
     - randint(start, end=None): Generate a random integer within a specified range [start, end].
-    - choice(seq): Choose a random element from a sequence.
+    - choice(seq): Choose a random element from a list.
     - random(): Generate a random floating-point number in the range [0.0, 1.0).
-    - sample(seq, k, unique=True): Randomly sample unique elements from a sequence.
-    - shuffle(seq, state=None): Shuffle a sequence and return a new shuffled list.
+    - sample(seq, k, unique=True): Randomly sample unique elements from a list.
+    - shuffle(seq, state=None): Shuffle a list and return a new shuffled list.
     - uniform(a, b): Generate a random floating-point number N such that a <= N <= b.
     - setstate(state): Set the internal state of the generator.
     """
@@ -154,7 +155,7 @@ class MT(object):
         self.index = 0
 
 
-    def computation(self, width=1000, height=1000):
+    def computation(self, width: int = 1000, height: int = 1000) -> None:
         """
         Perform a computation to generate a matrix of random values using specified dimensions.
 
@@ -203,7 +204,7 @@ class MT(object):
         del matrix, width_vector, height_vector
 
 
-    def get_computation_seed(self, n=8):
+    def get_computation_seed(self, n: int = 8) -> int:
         """
         Generate a seed for the Mersenne Twister 64-bit PRNG using a computational approach.
 
@@ -321,7 +322,7 @@ class MT(object):
         mt = MT()  # Create an instance of the Mersenne Twister generator.
         random_number = mt.random()  # Generate a random floating-point number.
         randint_number = mt.randint(1, 100)  # Generate a random integer within a specified range.
-        choice_element = mt.choice([1, 2, 3, 4, 5])  # Choose a random element from a sequence.
+        choice_element = mt.choice([1, 2, 3, 4, 5])  # Choose a random element from a list.
         ```
         """
 
@@ -350,7 +351,7 @@ class MT(object):
         self.update()
     
 
-    def _randint(self):
+    def _randint(self) -> int:
         """
         Generate a random 64-bit integer using the Mersenne Twister 64-bit PRNG.
 
@@ -400,7 +401,7 @@ class MT(object):
         return int(((1 << self.w) - 1) & number)
     
     
-    def randrange(self, start, end=None, step=1):
+    def randrange(self, start: int, end: int = None, step: int = 1) -> int:
         """
         Return a randomly selected integer from a range with optional step value.
 
@@ -439,7 +440,7 @@ class MT(object):
         return int(random_value)
     
 
-    def randint(self, start, end=None):
+    def randint(self, start: int, end: int = None) -> int:
         """
         Generate a random integer within a specified range [start, end] (inclusive).
 
@@ -470,22 +471,22 @@ class MT(object):
         return self.randrange(start, end)
 
 
-    def choice(self, seq):
+    def choice(self, seq: list) -> Any:
         """
-        Randomly select and return an element from a given sequence.
+        Randomly select and return an element from a given list.
 
-        This method chooses a random element from the provided sequence 'seq' using the internal Mersenne Twister PRNG.
-        The selection is performed by generating a random index within the range of the sequence length and returning the
+        This method chooses a random element from the provided list 'seq' using the internal Mersenne Twister PRNG.
+        The selection is performed by generating a random index within the range of the list length and returning the
         element at that index.
 
         Args:
-        - seq (sequence): The sequence from which to choose a random element.
+        - seq (list): The list from which to choose a random element.
 
         Returns:
-        - item: A randomly selected element from the input sequence 'seq'.
+        - item: A randomly selected element from the input list 'seq'.
 
         Note:
-        - The sequence 'seq' can be any iterable object, such as a list, tuple, or string.
+        - The list 'seq' can be any iterable object, such as a list, tuple, or string.
 
         Example usage:
         ```
@@ -495,21 +496,21 @@ class MT(object):
         ```
         """
 
-        # Generate a random index using the PRNG and select the corresponding element from the sequence
+        # Generate a random index using the PRNG and select the corresponding element from the list
         index = int(self._randint() % len(seq))
         return seq[index]
 
 
-    def random(self):
+    def random(self) -> float:
         """
         Generate a random floating-point number in the range [0.0, 1.0) using the Mersenne Twister 64-bit PRNG.
 
         This method produces a random floating-point number by dividing the result of the _randint() method by the
-        maximum possible value 'UM' (an attribute of the Mersenne Twister class). The result is scaled to the range
-        [0.0, 1.0), making it suitable for various randomization tasks.
+        maximum possible value 2**64 (an attribute of the Mersenne Twister class). The result is scaled to the range
+        [0.0, 1.0], making it suitable for various randomization tasks.
 
         Returns:
-        float: A random floating-point number in the range [0.0, 1.0).
+        float: A random floating-point number in the range [0.0, 1.0].
 
         Example usage:
         ```
@@ -521,14 +522,14 @@ class MT(object):
         return self._randint() / (1 << self.w)
 
 
-    def sample(self, seq, k, unique=True):
+    def sample(self, seq: list, k: int, unique: bool = True) -> list[Any]:
         """
-        Randomly sample elements from a sequence.
+        Randomly sample elements from a list.
 
-        This method selects 'k' random elements from the given sequence 'seq'. The sampled elements are returned as a list.
+        This method selects 'k' random elements from the given list 'seq'. The sampled elements are returned as a list.
         
         Parameters:
-        - seq (iterable): The sequence from which elements will be sampled.
+        - seq (iterable): The list from which elements will be sampled.
         - k (int): The number of elements to be sampled.
         - unique (bool, optional): If True, sampled elements are unique (without replacement). If False, elements can be duplicated.
         Default is True.
@@ -537,7 +538,7 @@ class MT(object):
         - list: A list containing the randomly sampled elements.
 
         Raises:
-        - ValueError: If unique is True and k is larger than the length of the sequence.
+        - ValueError: If unique is True and k is larger than the length of the list.
 
         Note:
         - When unique is True, the method ensures that sampled elements are unique by rejecting duplicates.
@@ -545,13 +546,13 @@ class MT(object):
         
         Example usage:
         ```
-        sequence = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         
-        # Sample 3 unique elements from the sequence
-        unique_sample = mt.sample(sequence, k=3)
+        # Sample 3 unique elements from the list
+        unique_sample = mt.sample(list, k=3)
         
-        # Sample 4 elements from the sequence with possible duplicates
-        non_unique_sample = mt.sample(sequence, k=4, unique=False)
+        # Sample 4 elements from the list with possible duplicates
+        non_unique_sample = mt.sample(list, k=4, unique=False)
         ```
         """
 
@@ -560,9 +561,9 @@ class MT(object):
         # If unique sampling is requested
         if unique:
 
-            # Check if k is valid given the length of the sequence
+            # Check if k is valid given the length of the list
             if len(seq) < k:
-                raise ValueError("If unique is True, k must be smaller or equal to the length of sequence")
+                raise ValueError("If unique is True, k must be smaller or equal to the length of list")
 
             # Sample unique indices until 'k' unique indices are obtained
             while len(idxs) < k:
@@ -577,24 +578,24 @@ class MT(object):
         return [seq[self._randint() % len(seq)] for i in range(k)]
 
 
-    def shuffle(self, seq, state=None):
+    def shuffle(self, seq: list, state: int = None) -> list[Any]:
         """
-        Shuffle the elements of a sequence using the Mersenne Twister 64-bit PRNG.
+        Shuffle the elements of a list using the Mersenne Twister 64-bit PRNG.
 
-        This method shuffles the elements of the given sequence using the Fisher-Yates shuffle algorithm, which is
+        This method shuffles the elements of the given list using the Fisher-Yates shuffle algorithm, which is
         enhanced by the Mersenne Twister PRNG for generating random indices.
 
         Args:
-        - seq: The sequence to be shuffled.
+        - seq: The list to be shuffled.
         - state (optional): An optional state to set before shuffling. If provided, the generator's internal state will be
         temporarily updated to the specified state for shuffling and restored afterward.
 
         Returns:
-        - list: A new list containing the shuffled elements of the input sequence.
+        - list: A new list containing the shuffled elements of the input list.
 
         Note:
-        - The original sequence remains unchanged. The returned shuffled list contains the same elements as the input
-        sequence but in a random order.
+        - The original list remains unchanged. The returned shuffled list contains the same elements as the input
+        list but in a random order.
 
         Example usage:
         ```
@@ -609,7 +610,7 @@ class MT(object):
             index_save = self.index
             self.setstate(state)
 
-        # Make a copy of the input sequence to avoid modifying the original sequence
+        # Make a copy of the input list to avoid modifying the original list
         seq_copy = seq[:]
         shuffled_list = []
 
@@ -626,7 +627,7 @@ class MT(object):
         return shuffled_list
 
 
-    def uniform(self, start, end):
+    def uniform(self, start: float, end: float) -> float:
         """
         Generate a random floating-point number within the specified range [start, end].
 
@@ -655,7 +656,7 @@ class MT(object):
         return scaled_value
 
 
-    def setstate(self, state):
+    def setstate(self, state: int):
         """
         Set the internal state of the Mersenne Twister 64-bit PRNG using a given seed value.
 
@@ -673,8 +674,8 @@ class MT(object):
         random_number = mt.random()  # Generate a random number using the new state.
         ```
 
-        Important: Changing the internal state will affect the sequence of generated random numbers. The same seed will
-        always produce the same sequence of random numbers.
+        Important: Changing the internal state will affect the list of generated random numbers. The same seed will
+        always produce the same list of random numbers.
         """
         self.MT[0] = state  # Set the initial seed value
 
