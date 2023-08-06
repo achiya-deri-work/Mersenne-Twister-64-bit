@@ -1,5 +1,5 @@
 # Mersenne-Twister-64-bit
-a simple random or numpy.random like module implementing Mersenne Twister 64-bit offering some basic random methods
+a simple random or numpy.random like module implementing Mersenne Twister 64-bit and offering some basic random methods.
 
 # Mersenne Twister 64-bit PRNG Python Module
 
