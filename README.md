@@ -1,5 +1,5 @@
 # Mersenne-Twister-64-bit
-a simple random or numpy.random like module implementing Mersenne Twister 64-bit and offering some basic random methods.
+A simple random or numpy.random like module implementing Mersenne Twister 64-bit and offering some basic random methods.
 
 # Mersenne Twister 64-bit PRNG Python Module
 
@@ -7,7 +7,7 @@ a simple random or numpy.random like module implementing Mersenne Twister 64-bit
 
 ## Introduction
 
-This is a Python module that implements the Mersenne Twister 64-bit Pseudo-Random Number Generator (PRNG). The Mersenne Twister is a widely-used PRNG known for its long period and good statistical properties, making it suitable for various randomization tasks.
+This Python module implements the Mersenne Twister 64-bit Pseudo-Random Number Generator (PRNG). The Mersenne Twister is a widely-used PRNG known for its long period and good statistical properties, making it suitable for various randomization tasks.
 
 The module provides a user-friendly interface for generating random numbers, shuffling sequences, and sampling elements. It also includes methods for seeding the generator, ensuring reproducibility, and verifying the correctness of the generator's implementation through testing.
 
