@@ -24,7 +24,9 @@ Functions:
 Note: The module exports the above functions directly, so they can be accessed as part of the module itself.
 """
 
+
 import time
+import math
 from typing import Any
 
 
@@ -35,8 +37,8 @@ class SeedingError(Exception):
     This exception is raised when the Mersenne Twister 64-bit PRNG is used without being properly seeded first.
 
     Attributes:
-    - msg: A message indicating that the generator was never seeded. Developers are encouraged to contact the developer
-           responsible for the code to address the seeding issue.
+        - msg: A message indicating that the generator was never seeded. Developers are encouraged to contact the developer
+               responsible for the code to address the seeding issue.
     """
 
     def __init__(self):
@@ -48,14 +50,14 @@ class SeedingError(Exception):
 
 class GeneratorError(Exception):
     """
-    Exception raised for failed generator check.
+    Exception raised when the generator encounters an unknown failure.
 
     This exception is raised when the Mersenne Twister 64-bit PRNG encounters an unknown failure during operation.
     The failure could be due to faulty parameters or potential corruption of the generator code.
 
     Attributes:
-    - msg: A message indicating that the generator failed for an unknown reason. Developers may need to investigate
-           and rectify issues related to parameters or the integrity of the generator's implementation.
+        - msg: A message indicating that the generator failed for an unknown reason. Developers may need to investigate
+               and rectify issues related to parameters or the integrity of the generator's implementation.
     """
 
     def __init__(self):
@@ -63,6 +65,7 @@ class GeneratorError(Exception):
 
     def __str__(self):
         return self.msg
+
 
 
 # List of symbols to be exported when using 'from module import *'
@@ -73,189 +76,94 @@ __all__ = [
     "randrange",
     "sample",
     "setstate",
+    "getstate",
     "shuffle",
     "uniform",
+    "permutation",
+    "normal"
 ]
 
 
+NV_MAGICCONST = 4 * math.exp(-0.5) / math.sqrt(2.0)
+LOG4 = math.log(4.0)
+SG_MAGICCONST = 1.0 + math.log(4.5)
+BPF = 53        # Number of bits in a float
+RECIP_BPF = 2 ** -BPF
+
+
 class MT(object):
+    
     """
-    Mersenne Twister 64-bit Pseudo-Random Number Generator class.
-
-    This class implements a Mersenne Twister PRNG with a 64-bit word size. It provides methods to generate random numbers
-    and perform various randomization operations.
-
+    Mersenne Twister 64-bit Pseudo-Random Number Generator.
+    
+    This class implements a Mersenne Twister PRNG with a 64-bit word size,
+    providing methods for generating random numbers and performing various
+    randomization operations.
+    
     Attributes:
-    - f, w, n, m, r, a, u, d, s, b, t, c, l: Constants used in the Mersenne Twister algorithm.
-    - index: Current position in the state vector.
-    - LM, UM: Bitmasks to extract lower and upper bits from a 64-bit word.
-    - MT: Internal state vector for the generator.
-
+        f, w, n, m, r, a, u, d, s, b, t, c, l (int): Constants used in the Mersenne Twister algorithm.
+        index (int): Current position in the state vector.
+        LM, UM (int): Bitmasks to extract lower and upper bits from a 64-bit word.
+        MT (list): Internal state vector for the generator.
+    
     Methods:
-    - twist(): Perform the twist operation to update the internal state.
-    - computation(width=1000, height=1000): Perform a computation that wastes time, used in get_computation_seed() to generate random numbers for seeding.
-    - get_computation_seed(n=8): Generate a seed using the computation method.
-    - update(): Update the internal state of the generator.
-    - _randint(): Generate a random 64-bit integer.
-    - randrange(start, end=None, step=1): Generate a random integer within a specified range with step.
-    - randint(start, end=None): Generate a random integer within a specified range [start, end].
-    - choice(seq): Choose a random element from a list.
-    - random(): Generate a random floating-point number in the range [0.0, 1.0).
-    - sample(seq, k, unique=True): Randomly sample unique elements from a list.
-    - shuffle(seq, state=None): Shuffle a list and return a new shuffled list.
-    - uniform(a, b): Generate a random floating-point number N such that a <= N <= b.
-    - setstate(state): Set the internal state of the generator.
+        twist(): Perform the twist operation to update the internal state.
+        computation(width=1000, height=1000): Perform a computation that wastes time,
+            used in get_computation_seed() to generate random numbers for seeding.
+        get_computation_seed(n=8): Generate a seed using the computation method.
+        update(): Update the internal state of the generator.
+        _randint(): Generate a random 64-bit integer.
+        randrange(start, end=None, step=1): Generate a random integer within a specified range with step.
+        randint(start, end=None): Generate a random integer within a specified range [start, end].
+        choice(seq): Choose a random element from a list.
+        random(): Generate a random floating-point number in the range [0.0, 1.0).
+        sample(seq, k, unique=True): Randomly sample unique elements from a list.
+        shuffle(seq, state=None): Shuffle a list and return a new shuffled list.
+        uniform(a, b): Generate a random floating-point number N such that a <= N <= b.
+        setstate(state): Set the internal state of the generator.
     """
 
-
-    def twist(self):
-
+    def __init__(self):
         """
-        Perform the twist operation to update the internal state of the Mersenne Twister 64-bit PRNG.
-
-        The twist operation is a fundamental step in the Mersenne Twister algorithm. It updates the internal state of the
-        generator by applying bitwise operations to the current state vector.
-
-        Steps of the twist operation for each element in the state vector:
-        1. Retrieve the current element MT[i] and the next element MT[(i+1) % n] from the state vector.
-        2. Apply bitwise AND operation between MT[i] and a bitmask UM to obtain the lower bits of MT[i].
-        3. Apply bitwise AND operation between MT[(i+1) % n] and a bitmask LM to obtain the higher bits of MT[(i+1) % n].
-        4. Add the lower bits and higher bits obtained in steps 2 and 3, respectively, to obtain the variable x.
-        5. Right-shift x by 1 bit to get xA.
-        6. If x is an odd number (i.e., x % 2 != 0), XOR xA with the constant 'a'.
-        7. Update MT[i] by XORing the value at position (i + m) % n in the state vector with xA.
-
-        After performing the twist operation for all elements in the state vector, the 'index' attribute is reset to 0,
-        indicating that the generator is ready to produce the next random number.
-
-        This method is typically called when the generator's state vector is exhausted, and it needs to be refreshed to
-        continue generating random numbers.
-
-        Note:
-        - The 'UM' and 'LM' attributes represent bitmasks to extract the lower and upper bits from a 64-bit word.
-        - The 'n' attribute represents the size of the state vector.
-        - The 'm' attribute is used in the twist operation to calculate the next index for updating the state vector.
-        """
-
-        for i in range(self.n):
-            # Retrieve and add current element and next element from the state vector
-            x = (self.MT[i] & self.UM) + (self.MT[(i+1) % self.n] & self.LM)
-
-            # Compute xA by right-shifting x by 1 bit
-            xA = x >> 1
-
-            # If x is an odd number, XOR xA with the constant 'a'
-            if (x % 2) != 0:
-                xA = xA ^ self.a
-            
-            # Update the state vector element at position i
-            self.MT[i] = self.MT[(i + self.m) % self.n] ^ xA
-
-        # Reset the index to 0, indicating the state vector is ready for the next random number generation
-        self.index = 0
-
-
-    def computation(self, width: int = 1000, height: int = 1000) -> None:
-        """
-        Perform a computation to generate a matrix of random values using specified dimensions.
-
-        This method generates a matrix of values using the given 'width' and 'height' dimensions. The matrix is
-        constructed by computing the product of normalized values from width_vector and height_vector.
-
+        Initializes the Mersenne Twister PRNG with default constants and internal state.
+        
+        This method sets up the necessary constants and internal state for the Mersenne Twister 
+        algorithm, including the coefficients, bitmasks, and initial state vector.
+        
         Parameters:
-        - width (int, optional): The number of columns in the matrix. Default is 1000.
-        - height (int, optional): The number of rows in the matrix. Default is 1000.
-
+            None
+        
         Returns:
-        - None
-
-        Example usage:
-        ```
-        mt.computation(500, 300)  # Generate a matrix with dimensions 500x300.
-        ```
-
-        Note:
-        - The 'width_vector' and 'height_vector' are created by dividing the range of indices by the specified 'width' and 'highet' respectively.
-        - The resulting matrix is a 2D list where each element is the product of corresponding elements from 'width_vector'
-        and 'height_vector'.
-        - The 'matrix', 'width_vector', and 'height_vector' are deleted at the end of the method to free memory.
-
-        Important:
-        This computation method is used to generate a seed for the Mersenne Twister PRNG. It is part of the seeding process
-        to ensure the generator starts with a sufficiently random state.
-
-        Warning:
-        Modifying this method may impact the quality of randomness generated by the Mersenne Twister PRNG.
+            None
         """
         
-        # Create width_vector by normalizing index values
-        width_vector = [i / width for i in range(width)]
-        # Create height_vector by normalizing index values
-        height_vector = [i / width for i in range(height)]
 
-        # Initialize an empty matrix to hold the random values
-        matrix = []
+        # Initialize constants used in the Mersenne Twister algorithm
+        self.f = 6364136223846793005
+        self.w = 64
+        self.n = 312
+        self.m = 156
+        self.r = 31
+        self.a = 0xb5026f5aa96619e9
+        self.u = 29
+        self.d = 0x5555555555555555
+        self.s = 17
+        self.b = 0x71d67fffeda60000
+        self.t = 37
+        self.c = 0xfff7eee000000000
+        self.l = 43
 
-        # Generate the matrix by computing products of width_vector and height_vector values
-        for i in range(width):
-            matrix.append([width_vector[i] * height_vector[j] for j in range(height)])
+        # Initialize index and bitmasks for generating random numbers
+        self.index = self.n + 1
+        self.LM = (1 << self.r) - 1 
+        self.UM = (~self.LM) & ((1 << self.w) - 1)
 
-        # Free memory by deleting the matrix and vectors
-        del matrix, width_vector, height_vector
+        # Initialize the internal state vector with zeros and updates it
+        self.MT = [0] * self.n
+        self.update()
 
-
-    def get_computation_seed(self, n: int = 8) -> int:
-        """
-        Generate a seed for the Mersenne Twister 64-bit PRNG using a computational approach.
-
-        This method generates a seed for the PRNG by performing a series of computations and extracting digits from the
-        fractional part of the execution time of the 'computation()' method. The extracted digits are used to update the width
-        and height parameters, which are then combined to form the final seed.
-
-        Parameters:
-        - n (int): The number of computations to perform for generating the seed. Default is 8.
-
-        Returns:
-        int: The generated seed for initializing the PRNG.
-
-        Note:
-        - The 'computation()' method generates a matrix of values based on width and height parameters.
-
-        Example usage:
-        ```
-        seed = mt.get_computation_seed()  # Generate a computational seed for the PRNG.
-        mt.setstate(seed)  # Set the PRNG's internal state using the generated seed.
-        ```
-        """
-
-        width = 1000
-        height = 1000
-
-        for _ in range(n):
-            start = time.time()
-            self.computation(width, height)  # Perform a computation to generate varying execution time.
-            end = time.time() - start
-
-            # Extract digits from the fractional part of the execution time
-            num = str(int(str(end).split(".")[1]))
-
-            updated_width = False
-            updated_height = False
-
-            # Update width and height based on extracted digits
-            for j in range(len(num) - 3):
-                if int(num[j:j+3]) >= 500:
-                    if updated_width:
-                        height = int(num[j:j+3])
-                        updated_height = True
-                    else:
-                        width = int(num[j:j+3])
-                        updated_width = True
-
-                if updated_height:
-                    break
-        # returns a computational seed
-        return int(num)
+        # Initialize constants for functions
+        self.MV = 1 << self.w # Max Value
 
 
     def update(self):
@@ -288,7 +196,7 @@ class MT(object):
         self.index -= 1
 
         # Seed the first element of the state vector
-        self.MT[0] = self.get_computation_seed()
+        self.MT[0] = int(str(time.time()).split('.')[1])
 
         # Recurrence update for other elements in the state vector
         for i in range(1, self.n):
@@ -299,57 +207,58 @@ class MT(object):
             self.MT[i] = int(((1 << self.w) - 1) & next_state)
 
 
-    def __init__(self):
+    def twist(self):
+
         """
-        Initialize the Mersenne Twister 64-bit Pseudo-Random Number Generator.
+        Perform the twist operation to update the internal state of the Mersenne Twister 64-bit PRNG.
 
-        This constructor initializes the Mersenne Twister generator by setting the constants and attributes required for
-        random number generation. It also calls the 'update()' method to populate the internal state vector.
+        This method updates the internal state of the generator by applying bitwise operations to the current state vector.
 
-        Constants:
-        - f, w, n, m, r, a, u, d, s, b, t, c, l: Parameters used in the Mersenne Twister algorithm.
-        - index: Current position in the state vector.
-        - LM, UM: Bitmasks to extract lower and upper bits from a 64-bit word.
+        The twist operation involves the following steps for each element in the state vector:
+            1. Retrieve the current element MT[i] and the next element MT[(i+1) % n] from the state vector.
+            2. Apply bitwise AND operation between MT[i] and a bitmask UM to obtain the lower bits of MT[i].
+            3. Apply bitwise AND operation between MT[(i+1) % n] and a bitmask LM to obtain the higher bits of MT[(i+1) % n].
+            4. Add the lower bits and higher bits obtained in steps 2 and 3, respectively, to obtain the variable x.
+            5. Right-shift x by 1 bit to get xA.
+            6. If x is an odd number (i.e., x % 2 != 0), XOR xA with the constant 'a'.
+            7. Update MT[i] by XORing the value at position (i + m) % n in the state vector with xA.
 
-        Attributes:
-        - MT: Internal state vector for the generator.
+        After performing the twist operation for all elements in the state vector, the 'index' attribute is reset to 0,
+        indicating that the generator is ready to produce the next random number.
 
-        The constructor prepares the generator for producing random numbers. To start generating random numbers, methods
-        like 'random()', 'randint()', or 'choice()' can be called on an instance of the MT class.
+        This method is typically called when the generator's state vector is exhausted, and it needs to be refreshed to
+        continue generating random numbers.
 
-        Example usage:
-        ```
-        mt = MT()  # Create an instance of the Mersenne Twister generator.
-        random_number = mt.random()  # Generate a random floating-point number.
-        randint_number = mt.randint(1, 100)  # Generate a random integer within a specified range.
-        choice_element = mt.choice([1, 2, 3, 4, 5])  # Choose a random element from a list.
-        ```
+        Parameters:
+            None
+
+        Returns:
+            None
+
+        Note:
+            - The 'UM' and 'LM' attributes represent bitmasks to extract the lower and upper bits from a 64-bit word.
+            - The 'n' attribute represents the size of the state vector.
+            - The 'm' attribute is used in the twist operation to calculate the next index for updating the state vector.
         """
 
-        # Initialize constants used in the Mersenne Twister algorithm
-        self.f = 6364136223846793005
-        self.w = 64
-        self.n = 312
-        self.m = 156
-        self.r = 31
-        self.a = 0xb5026f5aa96619e9
-        self.u = 29
-        self.d = 0x5555555555555555
-        self.s = 17
-        self.b = 0x71d67fffeda60000
-        self.t = 37
-        self.c = 0xfff7eee000000000
-        self.l = 43
+        # Perform the twist operation for each element in the state vector
+        for i in range(self.n):
+            # Retrieve and add current element and next element from the state vector
+            x = (self.MT[i] & self.UM) + (self.MT[(i+1) % self.n] & self.LM)
 
-        # Initialize index and bitmasks for generating random numbers
-        self.index = self.n + 1
-        self.LM = (1 << self.r) - 1 
-        self.UM = (~self.LM) & ((1 << self.w) - 1)
+            # Compute xA by right-shifting x by 1 bit
+            xA = x >> 1
 
-        # Initialize the internal state vector with zeros and updates it
-        self.MT = [0] * self.n
-        self.update()
-    
+            # If x is an odd number, XOR xA with the constant 'a'
+            if (x % 2) != 0:
+                xA = xA ^ self.a
+            
+            # Update the state vector element at position i
+            self.MT[i] = self.MT[(i + self.m) % self.n] ^ xA
+
+        # Reset the index to 0, indicating the state vector is ready for the next random number generation
+        self.index = 0
+
 
     def _randint(self) -> int:
         """
@@ -359,19 +268,25 @@ class MT(object):
         updating the internal state for subsequent random number generation.
 
         The steps involved in generating the random integer are as follows:
-        1. Check if the state vector needs to be refreshed (index >= n), and perform the twist operation if necessary.
-        2. Retrieve the current state vector element at the current index.
-        3. Apply bitwise operations to the current element to introduce randomness:
-            - Right-shift number by 'u' bits, then perform bitwise AND with 'd', then perform bitwise XOR with itself.
-            - Left-shift number by 's' bits, then perform bitwise AND with 'b', then perform bitwise XOR with itself.
-            - Left-shift number by 't' bits, then perform bitwise AND with 'c', then perform bitwise XOR with itself.
-            - Right-shift number by 'l' bits, then perform bitwise XOR with itself.
-        4. Update the index for the next random number generation.
-        5. Return the generated random integer after performing bitwise AND with 64-bit bitmask.
+            1. Check if the state vector needs to be refreshed (index >= n), and perform the twist operation if necessary.
+            2. Retrieve the current state vector element at the current index.
+            3. Apply bitwise operations to the current element to introduce randomness:
+                - Right-shift number by 'u' bits, then perform bitwise AND with 'd', then perform bitwise XOR with itself.
+                - Left-shift number by 's' bits, then perform bitwise AND with 'b', then perform bitwise XOR with itself.
+                - Left-shift number by 't' bits, then perform bitwise AND with 'c', then perform bitwise XOR with itself.
+                - Right-shift number by 'l' bits, then perform bitwise XOR with itself.
+            4. Update the index for the next random number generation.
+            5. Return the generated random integer after performing bitwise AND with 64-bit bitmask.
+
+        Parameters:
+            None
+
+        Returns:
+            int: A random 64-bit integer.
 
         Note:
-        - The attributes 'u', 'd', 's', 'b', 't', and 'l' represent constants used in the bitwise operations.
-        - The 'n' attribute represents the size of the state vector.
+            - The attributes 'u', 'd', 's', 'b', 't', and 'l' represent constants used in the bitwise operations.
+            - The 'n' attribute represents the size of the state vector.
 
         Example usage:
         ```
@@ -409,19 +324,22 @@ class MT(object):
         Mersenne Twister 64-bit pseudo-random number generator.
 
         Args:
-        - start (int): The starting value of the range (inclusive).
-        - end (int, optional): The ending value of the range (exclusive). If not provided, 'start' is treated as the upper bound
-        and 0 is used as the lower bound.
-        - step (int, optional): The step size between values in the range. Default is 1.
+            start (int): The starting value of the range (inclusive).
+            end (int, optional): The ending value of the range (exclusive). Defaults to None.
+            step (int, optional): The step size between values in the range. Defaults to 1.
 
         Returns:
-        - int: A random integer from the specified range.
+            int: A random integer from the specified range.
+
+        Notes:
+            - If end is not provided, start is treated as the upper bound and 0 is used as the lower bound.
+            - The range is half-open, meaning it includes the start value but excludes the end value.
 
         Example usage:
         ```
-        random_value = mt.randrange(10)             # Generate a random integer in the range [0, 10).
-        random_range = mt.randrange(5, 15)          # Generate a random integer in the range [5, 15).
-        random_stepped = mt.randrange(0, 20, 3)     # Generate a random integer in the range [0, 20) with a step of 3.
+        random_value = mt.randrange(10)          # Generate a random integer in the range [0, 10).
+        random_range = mt.randrange(5, 15)      # Generate a random integer in the range [5, 15).
+        random_stepped = mt.randrange(0, 20, 3) # Generate a random integer in the range [0, 20) with a step of 3.
         ```
         """
 
@@ -448,17 +366,20 @@ class MT(object):
         the range is assumed to be [0, start] (inclusive). If 'end' is not provided, it is set to 'start', and 'start' is
         set to 0, effectively generating a random integer in the range [0, end].
 
-        Parameters:
-        - start (int): The lower bound of the range (inclusive) if 'end' is specified, or the upper bound (inclusive) if 'end' is not specified.
-        - end (int, optional): The upper bound of the range (inclusive). If not provided, the range becomes [0, start].
+        Args:
+            start (int): The lower bound of the range (inclusive) if 'end' is specified, or the upper bound (inclusive) if 'end' is not specified.
+            end (int, optional): The upper bound of the range (inclusive). Defaults to None.
 
         Returns:
-        - int: A randomly generated integer within the specified range [start, end].
+            int: A randomly generated integer within the specified range [start, end].
+
+        Notes:
+            - If 'end' is not provided, the range becomes [0, start].
 
         Example usage:
         ```
-        random_int = mt.randint(1, 10)      # Generate a random integer between 1 and 10 (inclusive).
-        random_int_default = mt.randint(5)  # Generate a random integer between 0 and 5 (inclusive).
+        random_int = mt.randint(1, 10)       # Generate a random integer between 1 and 10 (inclusive).
+        random_int_default = mt.randint(5) # Generate a random integer between 0 and 5 (inclusive).
         ```
         """
 
@@ -480,13 +401,14 @@ class MT(object):
         element at that index.
 
         Args:
-        - seq (list): The list from which to choose a random element.
+            seq (list): The list from which to choose a random element.
 
         Returns:
-        - item: A randomly selected element from the input list 'seq'.
+            item: A randomly selected element from the input list 'seq'.
 
-        Note:
-        - The list 'seq' can be any iterable object, such as a list, tuple, or string.
+        Notes:
+            - The input 'seq' can be any iterable object, such as a list, tuple, or string.
+            - If the input 'seq' is empty, a ValueError will be raised.
 
         Example usage:
         ```
@@ -503,14 +425,17 @@ class MT(object):
 
     def random(self) -> float:
         """
-        Generate a random floating-point number in the range [0.0, 1.0) using the Mersenne Twister 64-bit PRNG.
+        Generate a random floating-point number in the range [0.0, 1.0] with uniform distribution using the Mersenne Twister 64-bit PRNG.
 
         This method produces a random floating-point number by dividing the result of the _randint() method by the
         maximum possible value 2**64 (an attribute of the Mersenne Twister class). The result is scaled to the range
-        [0.0, 1.0], making it suitable for various randomization tasks.
+        [0.0, 1.0), making it suitable for various randomization tasks.
 
         Returns:
-        float: A random floating-point number in the range [0.0, 1.0].
+            float: A random floating-point number in the range [0.0, 1.0).
+
+        Notes:
+            - The upper bound (1.0) is excluded from the range.
 
         Example usage:
         ```
@@ -519,7 +444,7 @@ class MT(object):
         """
 
         # Generate a random 64-bit integer and divide it by the maximum possible value plus one - 2**64
-        return self._randint() / (1 << self.w)
+        return self._randint() / self.MV
 
 
     def sample(self, seq: list, k: int, unique: bool = True) -> list[Any]:
@@ -527,35 +452,35 @@ class MT(object):
         Randomly sample elements from a list.
 
         This method selects 'k' random elements from the given list 'seq'. The sampled elements are returned as a list.
-        
+
         Parameters:
-        - seq (iterable): The list from which elements will be sampled.
-        - k (int): The number of elements to be sampled.
-        - unique (bool, optional): If True, sampled elements are unique (without replacement). If False, elements can be duplicated.
-        Default is True.
+            seq (iterable): The list from which elements will be sampled.
+            k (int): The number of elements to be sampled.
+            unique (bool, optional): If True, sampled elements are unique (without replacement). If False, elements can be duplicated. Default is True.
 
         Returns:
-        - list: A list containing the randomly sampled elements.
+            list: A list containing the randomly sampled elements.
 
         Raises:
-        - ValueError: If unique is True and k is larger than the length of the list.
+            ValueError: If unique is True and k is larger than the length of the list.
 
-        Note:
-        - When unique is True, the method ensures that sampled elements are unique by rejecting duplicates.
-        - The 'seq' parameter can be any iterable, such as a list, tuple, or string.
-        
+        Notes:
+            - When unique is True, the method ensures that sampled elements are unique by rejecting duplicates.
+            - The 'seq' parameter can be any iterable, such as a list, tuple, or string.
+            - If unique is False, the method may return a list with duplicate elements.
+
         Example usage:
         ```
-        list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        
+        numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
         # Sample 3 unique elements from the list
-        unique_sample = mt.sample(list, k=3)
-        
+        unique_sample = mt.sample(numbers, k=3)
+
         # Sample 4 elements from the list with possible duplicates
-        non_unique_sample = mt.sample(list, k=4, unique=False)
+        non_unique_sample = mt.sample(numbers, k=4, unique=False)
         ```
         """
-
+        seq_ = seq.copy()
         idxs = []
 
         # If unique sampling is requested
@@ -567,9 +492,9 @@ class MT(object):
 
             # Sample unique indices until 'k' unique indices are obtained
             while len(idxs) < k:
-                idx = self._randint() % len(seq)
-                if idx not in idxs:
-                    idxs.append(idx)
+                idx = self._randint() % len(seq_)
+                idxs.append(idx)
+                seq_.pop(idx)
 
             # Return the sampled elements using the unique indices
             return [seq[idxs[i]] for i in range(k)]
@@ -591,7 +516,7 @@ class MT(object):
         temporarily updated to the specified state for shuffling and restored afterward.
 
         Returns:
-        - list: A new list containing the shuffled elements of the input list.
+        - None: Shuffles the list in place and returns None.
 
         Note:
         - The original list remains unchanged. The returned shuffled list contains the same elements as the input
@@ -605,26 +530,41 @@ class MT(object):
         ```
         """
         if state is not None:
-            # Save the current state & index and set the generator to the provided state (if any)
-            state_save = self.MT[0]
-            index_save = self.index
+            # Save the current state and set the generator to the provided state (if any)
+            state_save = self.MT[self.index]
+            # index_save = self.index
             self.setstate(state)
 
-        # Make a copy of the input list to avoid modifying the original list
-        seq_copy = seq[:]
-        shuffled_list = []
-
-        # Shuffle the elements using the Mersenne Twister PRNG to generate random indices
-        while len(seq_copy) > 0:
-            index = self._randint() % len(seq_copy)
-            shuffled_list.append(seq_copy.pop(index))
+        # Shuffle the list in place using the Fisher-Yates shuffle algorithm
+        for i in range(len(seq) - 1, 0, -1):
+            j = self._randint() % (i + 1)
+            seq[i], seq[j] = seq[j], seq[i]
 
         if state is not None:
-            # Restore the original state & index if a state was provided
+            # Restore the original state if a state was provided
             self.setstate(state_save)
-            self.index = index_save 
 
-        return shuffled_list
+
+    def permutation(self, seq: list, state: int = None) -> list[Any]:
+        if state is not None:
+            # Save the current state and set the generator to the provided state (if any)
+            state_save = self.MT[self.index]
+            # index_save = self.index
+            self.setstate(state)
+
+        # Create a copy of the input sequence
+        copy_seq = seq.copy()
+
+        # Shuffle the copy list in place using the Fisher-Yates shuffle algorithm
+        for i in range(len(copy_seq) - 1, 0, -1):
+            j = self._randint() % (i + 1)
+            copy_seq[i], copy_seq[j] = copy_seq[j], copy_seq[i]
+
+        if state is not None:
+            # Restore the original state if a state was provided
+            self.setstate(state_save)
+
+        return copy_seq
 
 
     def uniform(self, start: float, end: float) -> float:
@@ -654,6 +594,29 @@ class MT(object):
         scaled_value = start + (end - start) * random_value
 
         return scaled_value
+    
+
+    def normal(self, mean: float = 0, sigma: float = 1) -> float:
+        """
+        Generates a random floating-point number following a normal distribution.
+
+        Parameters:
+        - mean (float): The mean of the normal distribution. Defaults to 0.
+        - sigma (float): The standard deviation of the normal distribution. Defaults to 1.
+
+        Returns:
+        float: A random floating-point number following a normal distribution with the specified mean and standard deviation.
+        """
+        
+        while True:
+            u1 = self.random()
+            u2 = 1.0 - self.random()
+            z = NV_MAGICCONST * (u1 - 0.5) / u2
+            zz = z * z / 4.0
+            if zz <= -math.log(u2):
+                break
+
+        return mean + z * sigma
 
 
     def setstate(self, state: int):
@@ -683,6 +646,25 @@ class MT(object):
         for i in range(1, self.n):
             # Generate the next state element using the Mersenne Twister algorithm
             self.MT[i] = int(((1 << self.w) - 1) & (self.f * (self.MT[i - 1] ^ (self.MT[i - 1] >> (self.w - 2)))) + i)
+        
+        self.index = 0
+
+
+    def getstate(self) -> int:
+        """
+    	Retrieves the current state of the Mersenne Twister generator.
+
+    	Returns:
+    	int: The current state of the generator.
+    	"""
+
+        # Retrieve the current state of the generator
+        state = self.MT[self.index]
+
+        # Set current state to the first element of the MT vector
+        self.setstate(state)
+        
+        return state
 
 
 def check_generator():
@@ -713,18 +695,19 @@ def check_generator():
 
     # Generate test results using the generator's randomization methods
     uni_ = check_mt.uniform(5, 10)
-    shuffled_list_ = check_mt.shuffle(test_list)
     sample_ = check_mt.sample(test_list, 3)
     choice_ = check_mt.choice(test_list)
     random_ = check_mt.random()
     randint_ = check_mt.randint(0, 10)
     randrange_ = check_mt.randrange(0, 20, 6)
+    check_mt.shuffle(test_list)
 
     # Expected results for comparison
-    true_results = (9.518020130969973, [5, 1, 4, 3, 9, 6, 8, 0, 2, 7], [3, 0, 8], 4, 0.06762436009013457, 4, 18)
+    #[5, 1, 4, 3, 9, 6, 8, 0, 2, 7],  shuffled_list_,
+    true_results = ([9, 0, 6, 3, 8, 4, 2, 7, 5, 1], 5.009765699505878, [9, 3, 6], 9, 0.5515543951767912, 3, 12)
 
     # Compare generated results with expected outcome
-    if (uni_, shuffled_list_, sample_, choice_, random_, randint_, randrange_) != true_results:
+    if (test_list, uni_, sample_, choice_, random_, randint_, randrange_) != true_results:
         raise GeneratorError()
 
 
@@ -743,6 +726,10 @@ randrange = _inst.randrange
 sample = _inst.sample
 shuffle = _inst.shuffle
 setstate = _inst.setstate
+getstate = _inst.getstate
+permutation = _inst.permutation
+normal = _inst.normal
+
 
 """
 The code block above serves two main purposes:
